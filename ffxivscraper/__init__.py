@@ -81,7 +81,8 @@ class FFXIvScraper(Scraper):
             entry = {}
             title_tag = tag.select('.topics_list_inner a')[0]
             script = str(tag.select('script')[0])
-            entry['timestamp'] = int(re.findall(r"1[0-9]{9},", script)[0].rstrip(','))
+            entry['timestamp'] = datetime.fromtimestamp(int(re.findall(r"1[0-9]{9},", script)[0]
+                                                            .rstrip(','))).strftime('%Y-%m-%dT%H:%M:%S')
             entry['link'] = '//' + self.lodestone_domain + title_tag['href']
             entry['id'] = entry['link'].split('/')[-1]
             entry['title'] = title_tag.string.encode('utf-8').strip()
@@ -234,7 +235,6 @@ class FFXIvScraper(Scraper):
             }
             debug_print('fc id', free_company['id'])
             debug_print('fc name', free_company['name'])
-            # print free_company['crest']
         except (AttributeError, IndexError):
             free_company = None
             debug_print('missing fc id', free_company)
@@ -328,7 +328,6 @@ class FFXIvScraper(Scraper):
                 parsed_equipment.append(' '.join(item_tags[0].text.split()))
             else:
                 parsed_equipment.append(None)
-
         equipment = parsed_equipment[:len(parsed_equipment) // 2]
 
         data = {
@@ -385,7 +384,7 @@ class FFXIvScraper(Scraper):
                 'icon': tag.select('div.entry__achievement__frame')[0].select('img')[0]['src'],
                 'name': tag.select('p.entry__activity__txt')[0].text.split('"')[1],
                 'date': datetime.fromtimestamp(int(re.findall(r'ldst_strftime\((\d+),', tag.find('script').text)[0]
-                                                   )).strftime('%Y-%m-%dT%T')
+                                                   )).strftime('%Y-%m-%dT%H:%M:%S')
             }
             achievements[achievement['id']] = achievement
 
@@ -418,7 +417,7 @@ class FFXIvScraper(Scraper):
         if formed:
             m = re.search(r'ldst_strftime\(([0-9]+),', formed)
             if m.group(1):
-                formed = datetime.fromtimestamp(float(m.group(1))).strftime('%Y-%m-%dT%T')
+                formed = datetime.fromtimestamp(float(m.group(1))).strftime('%Y-%m-%dT%H:%M:%S')
         else:
             formed = None
 
@@ -446,7 +445,7 @@ class FFXIvScraper(Scraper):
 
         estate_block = []
         # the estate data has no container, regex was the only way to grab it
-        for item in soup.findAll(True, {"class": re.compile("^(freecompany__estate__)(?!title).+")}):
+        for item in soup.find_all(True, {"class": re.compile("^(freecompany__estate__)(?!title).+")}):
             estate_block += item
 
         if estate_block[0] != 'No Estate or Plot':
