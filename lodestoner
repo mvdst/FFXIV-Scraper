@@ -4,9 +4,10 @@
 
 Usage:
   lodestoner char (<lodestone_id> | <server_name> <first_name> <last_name>)
-  lodestoner free_company <lodestone_id>
+  lodestoner free_company (<lodestone_id> | <server_name> <company_name>)
   lodestoner verify <server_name> <first_name> <last_name> <key>
   lodestoner validate <server_name> <first_name> <last_name>
+  lodestoner validate_free_company <server_name> <company_name>
   lodestoner topics
 
 Options:
@@ -31,6 +32,9 @@ if __name__ == '__main__':
         if a.get('validate'):
             ret = s.validate_character(a['<server_name>'], "%s %s" % (a['<first_name>'], a['<last_name>']))
 
+        if a.get('validate_free_company'):
+            ret = s.validate_free_company(a['<server_name>'], a['<company_name>'])
+
         if a.get('char'):
             if a['<lodestone_id>']:
                 ret = s.scrape_character(a['<lodestone_id>'])
@@ -39,13 +43,16 @@ if __name__ == '__main__':
                 ret = s.scrape_character(data.get('lodestone_id'))
 
         if a.get('free_company'):
-            ret = s.scrape_free_company(a['<lodestone_id>'])
-
+            if a['<lodestone_id>']:
+                ret = s.scrape_free_company(a['<lodestone_id>'])
+            else:
+                data = s.validate_free_company(a['<server_name>'], a['<company_name>'])
+                ret = s.scrape_free_company(data.get('lodestone_id'))
         if a.get('topics'):
             ret = s.scrape_topics()
 
         if ret:
-            print json.dumps(ret, indent=4)
+            print(json.dumps(ret, indent=4))
 
     except DoesNotExist:
-            print "Could not find character"
+            print("Could not find character")
