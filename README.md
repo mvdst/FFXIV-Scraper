@@ -1,5 +1,10 @@
 # FFXIV Lodestone Scraper
 
+## Requirements
+```
+Python 2/3 (tested on 2.7 & 3.6)
+```
+
 ## Install
 ```
 # Linux global install
