@@ -7,9 +7,6 @@ import requests
 import math
 
 
-# Removed with patch 4.2
-# FFXIV_ELEMENTS = ['fire', 'ice', 'wind', 'earth', 'lightning', 'water']
-
 FFXIV_PROPS = ['Defense', 'Parry', 'Magic Defense',
                'Attack Power', 'Skill Speed',
                'Slashing', 'Piercing', 'Blunt',
@@ -17,6 +14,13 @@ FFXIV_PROPS = ['Defense', 'Parry', 'Magic Defense',
                'Morale',
                'Accuracy', 'Critical Hit Rate', 'Determination',
                'Craftsmanship', 'Control']
+
+FFXIV_EQUIPMENT_SLOTS = [
+    'Main Hand', 'Off Hand', 'Head', 'Body',
+    'Hands', 'Waist', 'Legs', 'Feet', 'Earrings',
+    'Necklace', 'Bracelets', 'Ring 1', 'Ring 2',
+    'Soul Crystal'
+]
 
 
 def debug_print(field, value):
@@ -300,35 +304,19 @@ class FFXIvScraper(Scraper):
         parsed_equipment = []
 
         equip_boxes = soup.select('.ic_reflection_box')
-        for equip_box in equip_boxes:
-            slot_p = equip_box.select('p.db-tooltip__item__category')
-            if len(slot_p):
-                parsed_equip = {}
-                parsed_equip['slot'] = slot_p[0].text
-                parsed_equip['name'] = equip_box.select('h2.db-tooltip__item__name')[0].text
-                parsed_equip['img'] = equip_box.select('img.db-tooltip__item__icon__item_image')[0]['src']
-                parsed_equipment.append(parsed_equip)
-            else:
-                parsed_equipment.append({})
+        for equip_box in equip_boxes[:len(equip_boxes) // 2]:
+            # Grab the slot number
+            r = re.compile(r"([1-9]\d*|0)").search(str(equip_box['class'][0]))
 
-        for i, tag in enumerate(soup.select('.item_name_right')):
-            item_tags = tag.select('.item_name')
+            parsed_equip = {}
+            parsed_equip['slot'] = FFXIV_EQUIPMENT_SLOTS[int(r.group(1))]
+            parsed_equip['name'] = equip_box.select('h2.db-tooltip__item__name')[0].text \
+                if equip_box.select('h2.db-tooltip__item__name') else 'Empty'
+            parsed_equip['img'] = equip_box.select('img.db-tooltip__item__icon__item_image')[0]['src'] \
+                if equip_box.select('img.db-tooltip__item__icon__item_image') else ''
+            parsed_equipment.append(parsed_equip)
 
-            if item_tags:
-
-                if i == 0:
-                    slot_name = tag.select('.category_name')[0].string.strip()
-                    slot_name = slot_name.replace('Two-handed ', '')
-                    slot_name = slot_name.replace('One-handed ', '')
-                    slot_name = slot_name.replace("'s Arm", '')
-                    slot_name = slot_name.replace("'s Primary Tool", '')
-                    slot_name = slot_name.replace("'s Grimoire", '')
-
-                # strip out all the extra \t and \n it likes to throw in
-                parsed_equipment.append(' '.join(item_tags[0].text.split()))
-            else:
-                parsed_equipment.append(None)
-        equipment = parsed_equipment[:len(parsed_equipment) // 2]
+        equipment = parsed_equipment
 
         data = {
             'name': name,
@@ -366,7 +354,7 @@ class FFXIvScraper(Scraper):
         return data
 
     def scrape_achievements(self, lodestone_id, page=1):
-        url = 'http://na.finalfantasyxiv.com/lodestone/character/%s/achievement/?filter=2&page=%s' \
+        url = self.lodestone_url + '/character/%s/achievement/?filter=2&page=%s' \
               % (lodestone_id, page)
 
         r = self.make_request(url)
