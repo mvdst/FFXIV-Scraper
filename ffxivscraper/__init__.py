@@ -314,6 +314,24 @@ class FFXIvScraper(Scraper):
                 if equip_box.select('h2.db-tooltip__item__name') else 'Empty'
             parsed_equip['img'] = equip_box.select('img.db-tooltip__item__icon__item_image')[0]['src'] \
                 if equip_box.select('img.db-tooltip__item__icon__item_image') else ''
+
+            materia_sockets = equip_box.find_all(class_='socket')
+            materias = {}
+            # I am sure this can be handled better
+            for materia in materia_sockets:
+                if materia.next_sibling is not None:
+                    for span in materia.next_sibling.find_all("span"):
+                        span.decompose()
+                    materias['slot_' + str(len(materias)+1)] = materia.next_sibling.text
+                else:
+                    materias['slot_' + str(len(materias)+1)] = 'Empty'
+            while len(materias) < 5:
+                materias['slot_' + str(len(materias)+1)] = '-'
+            parsed_equip['materia'] = materias
+
+            glamour = equip_box.select('div.db-tooltip__item__mirage > p')
+            parsed_equip['glamour'] = glamour[0].text if len(glamour) > 0 else 'None'
+
             parsed_equipment.append(parsed_equip)
 
         equipment = parsed_equipment
