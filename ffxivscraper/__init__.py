@@ -81,20 +81,20 @@ class FFXIvScraper(Scraper):
 
         news = []
         soup = bs4.BeautifulSoup(r.content, "html.parser")
-        for tag in soup.select('.topics_list li'):
+        for tag in soup.select('.news__content ul li.news__list--topics'):
             entry = {}
-            title_tag = tag.select('.topics_list_inner a')[0]
+            title_tag = tag.select('.news__list--title a')[0]
             script = str(tag.select('script')[0])
             entry['timestamp'] = datetime.fromtimestamp(int(re.findall(r"1[0-9]{9},", script)[0]
                                                             .rstrip(','))).strftime('%Y-%m-%dT%H:%M:%S')
             entry['link'] = '//' + self.lodestone_domain + title_tag['href']
             entry['id'] = entry['link'].split('/')[-1]
-            entry['title'] = title_tag.string.encode('utf-8').strip()
-            body = tag.select('.area_inner_cont')[0]
+            entry['title'] = title_tag.string.strip()
+            body = tag.select('.news__list--banner')[0]
             for a in body.findAll('a'):
                 if a['href'].startswith('/'):
                     a['href'] = '//' + self.lodestone_domain + a['href']
-            entry['body'] = body.encode('utf-8').strip()
+            entry['body'] = body.text
             entry['lang'] = 'en'
             news.append(entry)
         return news
