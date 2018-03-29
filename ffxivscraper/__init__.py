@@ -317,16 +317,13 @@ class FFXIvScraper(Scraper):
 
             materia_sockets = equip_box.find_all(class_='socket')
             materias = {}
-            # I am sure this can be handled better
             for materia in materia_sockets:
-                if materia.next_sibling is not None:
-                    for span in materia.next_sibling.find_all("span"):
-                        span.decompose()
-                    materias['slot_' + str(len(materias)+1)] = materia.next_sibling.text
-                else:
-                    materias['slot_' + str(len(materias)+1)] = 'Empty'
-            while len(materias) < 5:
-                materias['slot_' + str(len(materias)+1)] = '-'
+                slot_number = str(len(materias) + 1)
+                materias['slot_' + slot_number] = materia.next_sibling(text=True, recursive=False)[0] \
+                    if materia.next_sibling is not None else '-'
+            # Create the remainder of possible slots
+            for x in range(len(materias)+1, 6):
+                materias['slot_' + str(x)] = '-'
             parsed_equip['materia'] = materias
 
             glamour = equip_box.select('div.db-tooltip__item__mirage > p')
