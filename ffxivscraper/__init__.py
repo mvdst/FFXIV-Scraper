@@ -7,46 +7,12 @@ import requests
 import math
 
 
-FFXIV_PROPS = ['Defense', 'Parry', 'Magic Defense',
-               'Attack Power', 'Skill Speed',
-               'Slashing', 'Piercing', 'Blunt',
-               'Attack Magic Potency', 'Healing Magic Potency', 'Spell Speed',
-               'Morale',
-               'Accuracy', 'Critical Hit Rate', 'Determination',
-               'Craftsmanship', 'Control']
-
 FFXIV_EQUIPMENT_SLOTS = [
     'Main Hand', 'Off Hand', 'Head', 'Body',
     'Hands', 'Waist', 'Legs', 'Feet', 'Earrings',
     'Necklace', 'Bracelets', 'Ring 1', 'Ring 2',
     'Soul Crystal'
 ]
-
-
-def debug_print(field, value):
-    debug = 0
-    if debug:
-        if value:
-            print(field.upper() + " :: " + value)
-        else:
-            print("NO VALUE FOR: " + field)
-
-
-def strip_tags(html, invalid_tags):
-    soup = bs4.BeautifulSoup(html, 'html.parser')
-
-    for tag in soup.findAll(True):
-        if tag.name in invalid_tags:
-            s = ""
-
-            for c in tag.contents:
-                if not isinstance(c, bs4.NavigableString):
-                    c = strip_tags(str(c), invalid_tags)
-                s += str(c)
-
-            tag.replaceWith(s)
-
-    return soup
 
 
 class DoesNotExist(Exception):
@@ -65,6 +31,7 @@ class Scraper(object):
 
 
 class FFXIvScraper(Scraper):
+
     def __init__(self):
         super(FFXIvScraper, self).__init__()
         headers = {
@@ -75,6 +42,10 @@ class FFXIvScraper(Scraper):
         self.lodestone_domain = 'na.finalfantasyxiv.com'
         self.lodestone_url = 'http://%s/lodestone' % self.lodestone_domain
 
+    '''
+    Scaper method to grab the news items
+    from the lodestone website.
+    '''
     def scrape_topics(self):
         url = self.lodestone_url + '/topics/'
         r = self.make_request(url)
@@ -99,6 +70,10 @@ class FFXIvScraper(Scraper):
             news.append(entry)
         return news
 
+    '''
+    Converts a server and character name to a usable 
+    lodestone id for use as a uri component.
+    '''
     def validate_character(self, server_name, character_name):
 
         # Search for character
@@ -121,6 +96,10 @@ class FFXIvScraper(Scraper):
 
         return None
 
+    '''
+    Converts a server and company name to a usable 
+    lodestone id for use as a uri component.
+    '''
     def validate_free_company(self, server_name, free_company_name):
 
         # Search for free company
@@ -143,6 +122,10 @@ class FFXIvScraper(Scraper):
 
         return None
 
+    '''
+    Verifies a character based on a specific verification
+    code entered into the bio information.    
+    '''
     def verify_character(self, server_name, character_name, verification_code, lodestone_id=None):
         if not lodestone_id:
             char = self.validate_character(server_name, character_name)
@@ -163,13 +146,15 @@ class FFXIvScraper(Scraper):
         page_server = soup.select('p.frame__chara__world')[0].text.strip()
 
         if page_name != character_name or page_server != server_name:
-            print("%s %s" % (page_name, page_server))
-            print("Name mismatch")
             return False
 
         return lodestone_id if soup.select('div.character__selfintroduction')[
                                    0].text.strip() == verification_code else False
 
+    '''
+    Main scraping method for grabbing 
+    character related information.
+    '''
     def scrape_character(self, lodestone_id):
         character_url = self.lodestone_url + '/character/%s/' % lodestone_id
 
@@ -183,50 +168,36 @@ class FFXIvScraper(Scraper):
         character_link = '/lodestone/character/%s/' % lodestone_id
         if character_link not in soup.select('a.frame__chara__link')[0]['href']:
             raise DoesNotExist()
-        debug_print('character link', character_link)
 
         # Name, Server, Title
         name = soup.select('p.frame__chara__name')[0].text.strip()
-        debug_print('name', name)
         server = soup.select('p.frame__chara__world')[0].text.strip()
-        debug_print('server', server)
 
         try:
             title = soup.select('p.frame__chara__title')[0].text.strip()
         except (AttributeError, IndexError):
             title = None
-        debug_print('title', title)
 
         # Race, Tribe, Gender
         demographics = soup.find(text='Race/Clan/Gender').parent.parent
         demographics.select('p.character-block__name')[0].select('br')[0].replace_with(' / ')
         race, clan, gender = demographics.select('p.character-block__name')[0].text.split(' / ')
-        debug_print('race', race)
-        debug_print('clan', clan)
         gender = 'male' if gender.strip('\n\t')[-1] == u'\u2642' else 'female'
-        debug_print('gender', gender)
 
         # Nameday & Guardian
         nameday_guardian_block = soup.find(text='Nameday').parent.parent
         nameday = nameday_guardian_block.select('p.character-block__birth')[0].text
-        debug_print('nameday', nameday)
         guardian = nameday_guardian_block.select('p.character-block__name')[0].text
-        debug_print('guardian', guardian)
 
         # City-state
         citystate = soup.find(text='City-state').parent.parent.select('p.character-block__name')[0].text
-        debug_print('citystate', citystate)
 
         # Grand Company
         try:
             grand_company = soup.find_all(text='Grand Company')[1].parent.parent.select('p.character-block__name')[
                 0].text.split('/')
-            debug_print('grand company affiliation', grand_company[0])
-            debug_print('grand company rank', grand_company[1])
         except (AttributeError, IndexError):
             grand_company = None
-            debug_print('grand company affiliation', grand_company)
-            debug_print('grand company rank', grand_company)
 
         # Free Company
         try:
@@ -237,13 +208,8 @@ class FFXIvScraper(Scraper):
                 'name': free_company_name_block.text,
                 'crest': [x['src'] for x in free_company_crest_block.findChildren('img')]
             }
-            debug_print('fc id', free_company['id'])
-            debug_print('fc name', free_company['name'])
         except (AttributeError, IndexError):
             free_company = None
-            debug_print('missing fc id', free_company)
-            debug_print('missing fc name', free_company)
-            debug_print('missing fc crest', free_company)
 
         # Classes
         classes = {}
@@ -254,16 +220,11 @@ class FFXIvScraper(Scraper):
                 job_exp_meter = job.select('div.character__job__exp')[0].text
                 job_exp = 0
                 job_exp_next = 0
-                debug_print('job name', job_name)
-                debug_print('job level', job_level)
-                debug_print('job exp meter', job_exp_meter)
                 if job_level == '-':
                     job_level = 0
                 else:
                     job_level = int(job_level)
                     job_exp, job_exp_next = job_exp_meter.split(' / ')
-                debug_print('job exp', job_exp)
-                debug_print('job exp next', job_exp_next)
 
                 classes[job_name] = dict(level=job_level, exp=job_exp, exp_next=job_exp_next)
 
@@ -277,8 +238,6 @@ class FFXIvScraper(Scraper):
             for stat_name_th in stat_names:
                 stat_name = stat_name_th.text
                 stat_val = stat_name_th.parent.next_sibling.text
-                debug_print('stat_name: ', stat_name)
-                debug_print('stat_val: ', stat_val)
                 stats[stat_name] = stat_val
 
         for attribute in ('hp', 'mp', 'tp'):
@@ -368,6 +327,10 @@ class FFXIvScraper(Scraper):
 
         return data
 
+    '''
+    Scraper method to 
+    retrieve achievements.
+    '''
     def scrape_achievements(self, lodestone_id, page=1):
         url = self.lodestone_url + '/character/%s/achievement/?filter=2&page=%s' \
               % (lodestone_id, page)
@@ -401,6 +364,10 @@ class FFXIvScraper(Scraper):
 
         return achievements
 
+    '''
+    Main scraper method to 
+    retrieve fc based data.
+    '''
     def scrape_free_company(self, lodestone_id):
         url = self.lodestone_url + '/freecompany/%s/' % lodestone_id
         html = self.make_request(url)
@@ -431,20 +398,19 @@ class FFXIvScraper(Scraper):
         active_members = soup.find(text='Active Members').parent.next_sibling.next_sibling.text.strip()
         rank = soup.find(text='Rank').parent.next_sibling.next_sibling.text.strip()
 
-        # skip this for now
         focus = []
-        # for f in soup.select('.focus_icon li img'):
-        #    on = not (f.parent.get('class') and 'icon_off' in f.parent.get('class'))
-        #    focus.append(dict(on=on,
-        #                      name=f.get('title'),
-        #                      icon=f.get('src')))
+        for f in soup.select('.freecompany__focus_icon li'):
+            on = not (f.get('class') and 'freecompany__focus_icon--off' in f.get('class'))
+            focus.append(dict(on=on,
+                              name=f.find('p').text,
+                              icon=f.find('img')['src']))
 
         seeking = []
-        # for f in soup.select('.roles_icon li img'):
-        #    on = not (f.parent.get('class') and 'icon_off' in f.parent.get('class'))
-        #    seeking.append(dict(on=on,
-        #                        name=f.get('title'),
-        #                        icon=f.get('src')))
+        for f in soup.select('.freecompany__focus_icon--role li'):
+            on = not (f.get('class') and 'freecompany__focus_icon_off' in f.get('class'))
+            seeking.append(dict(on=on,
+                                name=f.find('p').text,
+                                icon=f.find('img')['src']))
 
         estate_block = []
         # the estate data has no container, regex was the only way to grab it
@@ -478,6 +444,10 @@ class FFXIvScraper(Scraper):
 
         roster = []
 
+        '''
+        Helper function to return all members 
+        belonging to the queried company.
+        '''
         def populate_roster(roster_page=1, soup=None):
             if not soup:
                 r = self.make_request(url + '?page=%s' % roster_page)
